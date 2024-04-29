@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -76,9 +77,34 @@ func (t *TCPTransport) acceptLoop() {
 func (t *TCPTransport) handleConnection(conn net.Conn, inbound bool) {
 	var err error
 	defer func() {
-		log.Println("Closing peer connection:", conn.RemoteAddr().String())
+		log.Printf("Closing peer (%v) connection: %v\n", conn.RemoteAddr().String(), err)
 		conn.Close()
 	}()
 
 	peer := NewTCPPeer(conn, inbound)
+	if err = t.HandshakeFunc(peer); err != nil {
+		return
+	}
+
+	if t.OnPeer != nil {
+		if err = t.OnPeer(peer); err != nil {
+			return
+		}
+	}
+
+	for {
+		rpc := RPC{}
+		err := t.Decoder.Decode(conn, &rpc)
+		if err != nil {
+			return
+		}
+		if rpc.Stream {
+			peer.wg.Add(1)
+			fmt.Println("streaming from:", peer.RemoteAddr().String())
+			peer.wg.Done()
+			continue
+		}
+		rpc.From = peer.RemoteAddr().Network()
+		t.incomingRpc <- rpc
+	}
 }
