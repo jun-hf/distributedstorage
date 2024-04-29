@@ -53,3 +53,13 @@ func (t *TCPTransport) acceptLoop() {
 		go t.handleConnection(conn, true)
 	}
 }
+
+func (t *TCPTransport) handleConnection(conn net.Conn, inbound bool) {
+	var err error
+	defer func() {
+		log.Println("Closing peer connection:", conn.RemoteAddr().String())
+		conn.Close()
+	}()
+
+	peer := NewTCPPeer(conn, inbound)
+}
