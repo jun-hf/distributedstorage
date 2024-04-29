@@ -38,6 +38,8 @@ type RPC struct {
 // HandshakeFunc is used to shake hand between peers when connecting. 
 type HandshakeFunc func(Peer) error
 
+// NoHandshakeFunc can be used if hand shake between 
+// Peers is not required.
 func NoHandshakeFunc(Peer) error { return nil }
 
 type Decoder interface {
@@ -52,6 +54,9 @@ func (g GOBDecoder) Decode(r io.Reader, msg *RPC) error {
 
 type DefaultDecoder struct {}
 
+// Decode implements the Decoder interface, it 
+// checks the first byte of r if it is 
+// IncomingMessage or IncomingStream
 func (dec DefaultDecoder) Decode(r io.Reader, rpc *RPC) error {
 	peekBuf := make([]byte, 1)
 	if _, err := r.Read(peekBuf); err != nil {
