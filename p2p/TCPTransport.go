@@ -4,7 +4,26 @@ import (
 	"errors"
 	"log"
 	"net"
+	"sync"
 )
+
+type TCPPeer struct {
+	net.Conn
+	inbound bool
+	wg *sync.WaitGroup
+}
+
+func NewTCPPeer(conn net.Conn, inbound bool) *TCPPeer {
+	return &TCPPeer{
+		Conn: conn,
+		inbound: inbound,
+		wg: &sync.WaitGroup{},
+	}
+}
+
+func (t *TCPPeer) Done() {
+	t.wg.Done()
+}
 
 type TCPTransportOpts struct {
 	ListenAddr string
