@@ -1,6 +1,8 @@
 package store
 
 import (
+	"fmt"
+	"io"
 	"strings"
 	"testing"
 
@@ -14,7 +16,7 @@ func TestKeyPath(t *testing.T) {
 	}
 	assert.Equal(t, "testing.go", keyPath.FileName)
 	assert.Equal(t, "path", keyPath.PathName)
-	
+
 	fileP := keyPath.FilePath()
 	assert.Equal(t, "path/testing.go", fileP)
 }
@@ -28,20 +30,47 @@ func TestSHA1PathTransformFunc(t *testing.T) {
 func TestStore(t *testing.T) {
 	opts := StoreOpts{
 		TransformPathFunc: SHA1PathTransformFunc,
-		Root: "testStore",
+		Root:              "testStore",
 	}
 	store := New(opts)
 	keyPath := store.TransformPathFunc("hello")
 	assert.Equal(t, "testStore/aaf4c/61ddc/c5e8a/2dabe/de0f3/b482c/d9aea/9434d", store.Path(keyPath))
 	assert.Equal(t, "testStore/aaf4c/61ddc/c5e8a/2dabe/de0f3/b482c/d9aea/9434d/aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d", store.FilePath(keyPath))
 
-	content := "Inside the file"
-	n, err := store.Write("testingFile", strings.NewReader(content))
-	if err != nil {
-		t.Fatal("Write failed:", err)
-	}
-	if n != int64(len(content)) {
-		t.Fatalf("Write with wrong content expected (%v) got (%v):", int64(len(content)), n)
+	for i := range 100 {
+		key := fmt.Sprintf("file%v",i)
+		content := "Inside the file" 
+		n, err := store.Write(key, strings.NewReader(content))
+		if err != nil {
+			t.Fatal("Write failed:", err)
+		}
+		if n != int64(len(content)) {
+			t.Fatalf("Write with wrong content expected (%v) got (%v):", int64(len(content)), n)
+		}
+		r, err := store.Read(key)
+		if err != nil {
+			t.Fatal("Read failed:", err)
+		}
+
+		if ok := store.Has(key); !ok {
+			t.Fatal("key should exist")
+		}
+
+		b, _ := io.ReadAll(r)
+		if string(b) != content {
+			t.Fatalf("Read failed expected (%v), got (%v)", content, string(b))
+		}
+
+		if err := store.Delete(key); err != nil {
+			t.Fatal("Delete failed:", err)
+		}
+
+		if ok := store.Has(key); ok {
+			t.Fatal("key should be deleted")
+		}
 	}
 
+	if err := store.ClearAll(); err != nil {
+		t.Fatal("ClearAll failed", err)
+	}
 }
