@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -91,18 +90,23 @@ func (s *Server) Store(key string, data io.Reader) (int, error) {
 
 func (s *Server) broadcast(m *Message) error {
 	s.mu.RLock()
-	defer s.mu.Unlock()
+	defer s.mu.RUnlock()
 
 	buff := new(bytes.Buffer)
 	if err := gob.NewEncoder(buff).Encode(m); err != nil {
 		return err
 	}
 	for addr, peer := range s.peers {
+		if _, err := peer.Write([]byte{p2p.IncomingMessage}); err != nil {
+			fmt.Printf("Write to %v failed: %v\n", addr, err)
+			continue
+		}
 		if _, err := peer.Write(buff.Bytes()); err != nil {
 			fmt.Printf("Write to %v failed: %v\n", addr, err)
 			continue
 		}
 	}
+	return nil
 }
 
 func (s *Server) process() {
@@ -110,11 +114,35 @@ func (s *Server) process() {
 	for {
 		select {
 		case rpc := <- s.transport.Consume():
-			fmt.Println(rpc)
+			var msg Message
+			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
+				log.Printf("Server (%v) decode error: %v\n", s.store.Root, err)
+				continue
+			}
+			if err := s.handleMessage(msg, rpc.From); err != nil {
+				log.Printf("Server (%v) decode error: %v\n", s.store.Root, err)
+				continue
+			}
 		case <-s.quitCh:
 			return
 		}
 	}
+}
+
+func (s *Server) handleMessage(m Message, from string) error {
+	switch data := m.Payload.(type) {
+	case MessageStoreFile:
+		return s.handleMessageStoreFile(data, from)
+	default:
+		log.Println("No suitable Payload type")
+		return nil
+	}
+}
+
+func (s *Server) handleMessageStoreFile(m MessageStoreFile, from string) error {
+	log.Println("Size:", m.Size)
+	log.Println("Key:", m.Key)
+	return nil
 }
 
 func (s *Server) Close() {
@@ -151,4 +179,8 @@ func (s *Server) dial() error {
 		}
 	}
 	return nil
+}
+
+func init() {
+	gob.Register(MessageStoreFile{})
 }

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jun-hf/distributedstorage/p2p"
@@ -20,8 +22,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// time.Sleep(2 *time.Second)
-	// server3030.Close()
+	time.Sleep(2 *time.Second)
+	if _, err := server3030.Store("Hello", strings.NewReader("JIDJISED")); err != nil {
+		fmt.Print(err)
+	}
 	select {}
 }
 
