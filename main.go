@@ -20,8 +20,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	time.Sleep(2 *time.Second)
-	server3030.Close()
+	// time.Sleep(2 *time.Second)
+	// server3030.Close()
 	select {}
 }
 
