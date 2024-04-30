@@ -112,8 +112,8 @@ func (t *TCPTransport) handleConnection(conn net.Conn, inbound bool) {
 	fmt.Printf("%v had established connection from %v\n", conn.LocalAddr().String(), conn.RemoteAddr().String())
 	for {
 		rpc := RPC{}
-		err := t.Decoder.Decode(conn, &rpc)
-		if err == io.EOF {
+		err = t.Decoder.Decode(conn, &rpc)
+		if err == io.EOF || errors.Is(err, net.ErrClosed) {
 			return
 		}
 		if err != nil {

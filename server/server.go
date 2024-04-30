@@ -1,6 +1,7 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"sync"
 
@@ -18,6 +19,7 @@ import (
 // transport server and Accept connection
 
 // How can we pass OnPeer
+// Think about how does closing affects the peers
 
 type ServerOpts struct {
 	Transport p2p.Transport
@@ -50,11 +52,41 @@ func New(opts ServerOpts) *Server {
 	}
 }
 
+
 func (s *Server) Start() error {
 	if err := s.transport.ListenAndAccept(); err != nil {
 		return err
 	}
+	go s.process()
 	return s.dial()
+}
+
+func (s *Server) process() {
+	defer s.cleanUp()
+	for {
+		select {
+		case rpc := <- s.transport.Consume():
+			fmt.Println(rpc)
+		case <-s.quitCh:
+			return
+		}
+	}
+}
+
+func (s *Server) Close() {
+	close(s.quitCh)
+}
+
+func (s *Server) cleanUp() {
+	if err := s.transport.Close(); err != nil {
+		log.Println("Error in closing:", err)
+	}
+	for _, peer := range s.peers {
+		if err := peer.Close(); err != nil {
+			log.Println("Error in closing peer:", err)
+		}
+	}
+	log.Println("Server shutdown:", s.store.Root)
 }
 
 func (s *Server) OnPeer(p p2p.Peer) error {
@@ -70,7 +102,7 @@ func (s *Server) dial() error {
 	}
 	for _, addr := range s.outboundServer {
 		if err := s.transport.Dial(addr); err != nil {
-			log.Println("server (%v) failed to dial %v: %v\n", s.store.Root, addr, err)
+			log.Printf("server (%v) failed to dial %v: %v\n", s.store.Root, addr, err)
 			continue
 		}
 	}
