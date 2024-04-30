@@ -13,7 +13,7 @@ import (
 )
 
 type KeyPath struct {
-	FileName, PathName string
+	PathName, FileName string
 }
 
 func (k KeyPath) FilePath() string {
@@ -82,7 +82,7 @@ func (s *Store) Write(key string, r io.Reader) (int64, error) {
 func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
 	keyPath := s.TransformPathFunc(key)
 	path := s.Path(keyPath)
-	if err := os.Mkdir(path, os.ModePerm); err != nil {
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
 		return 0, err
 	}
 	fileP := s.FilePath(keyPath)
