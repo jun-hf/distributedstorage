@@ -21,7 +21,7 @@ func (k KeyPath) FilePath() string {
 }
 
 type StoreOpts struct {
-	TransformPathFunc func(string) KeyPath
+	TransformPathFunc TransformPathFunc
 	Root string
 }
 
@@ -117,7 +117,6 @@ func (s *Store) deleteFullPath(fileP string) error {
 
 var (
 	defaultRoot = "storeDir"
-
 	DefaultPathTransformFunc = func (key string) KeyPath {
 		return KeyPath{PathName: key, FileName: key}
 	}
@@ -139,3 +138,5 @@ var (
 		}
 	}
 )
+
+type TransformPathFunc func(string) KeyPath
