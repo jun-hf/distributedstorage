@@ -10,9 +10,12 @@ func TestCopyEncrypt(t *testing.T) {
 	src := bytes.NewReader([]byte(data))
 	dst := new(bytes.Buffer)
 	key := New()
-	_, err := CopyEncrypt(key, src, dst)
+	n, err := CopyEncrypt(key, src, dst)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if n != 16 + len(data) {
+		t.Errorf("invalid byte size")
 	}
 	res := new(bytes.Buffer)
 	_, err = CopyDecrypt(key, dst, res)

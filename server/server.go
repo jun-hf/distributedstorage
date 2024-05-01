@@ -121,7 +121,7 @@ func (s *Server) writeStream(r io.Reader) (succWrite int) {
 			fmt.Printf("Write to %v failed: %v\n", addr, err)
 			continue
 		}
-		n, err := io.Copy(peer, r)
+		n, err := cryto.CopyEncrypt(s.encryptKey, r, peer)
 		if err != nil {
 			fmt.Printf("Write to %v failed: %v\n", addr, err)
 			continue
