@@ -102,7 +102,7 @@ func (s *Server) Store(key string, data io.Reader) (int, error) {
 	msg := &Message{
 		Payload: MessageStoreFile{
 			Key:  key,
-			Size: n,
+			Size: n + 16,
 		},
 	}
 	if err := s.broadcast(msg); err != nil {
