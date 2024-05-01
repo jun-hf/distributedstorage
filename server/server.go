@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/jun-hf/distributedstorage/p2p"
 	"github.com/jun-hf/distributedstorage/store"
@@ -25,36 +26,35 @@ import (
 // How can we pass OnPeer better
 
 type ServerOpts struct {
-	Transport p2p.Transport
-	Root string
-	OutboundServer []string
+	Transport         p2p.Transport
+	Root              string
+	OutboundServer    []string
 	TransformPathFunc store.TransformPathFunc
 }
 
 type Server struct {
-	transport p2p.Transport
-	store *store.Store
-	quitCh chan struct{}
+	transport      p2p.Transport
+	store          *store.Store
+	quitCh         chan struct{}
 	outboundServer []string
 
-	mu sync.RWMutex
+	mu    sync.RWMutex
 	peers map[string]p2p.Peer
 }
 
 func New(opts ServerOpts) *Server {
 	store := store.New(store.StoreOpts{
 		TransformPathFunc: opts.TransformPathFunc,
-		Root: opts.Root,
+		Root:              opts.Root,
 	})
 	return &Server{
-		transport: opts.Transport,
-		store: store,
-		quitCh: make(chan struct{}),
+		transport:      opts.Transport,
+		store:          store,
+		quitCh:         make(chan struct{}),
 		outboundServer: opts.OutboundServer,
-		peers: make(map[string]p2p.Peer),
+		peers:          make(map[string]p2p.Peer),
 	}
 }
-
 
 func (s *Server) Start() error {
 	if err := s.transport.ListenAndAccept(); err != nil {
@@ -64,28 +64,50 @@ func (s *Server) Start() error {
 	return s.dial()
 }
 
-// func to stream the message to other peers
-// store the content in the server and also the peers
-// will return the amount of success store inclusive of the success store in the whole server
+// Store the content to the server and also the peers's server
+// will return the amount of success store inclusive of the
+// success store in the own server.
 func (s *Server) Store(key string, data io.Reader) (int, error) {
 	succWrite := 0
 	dataBuff := new(bytes.Buffer)
 	tee := io.TeeReader(data, dataBuff)
-	if _, err := s.store.Write(key, tee); err != nil {
+	n, err := s.store.Write(key, tee)
+	if err != nil {
 		return 0, err
 	}
 	succWrite++
 
 	msg := &Message{
 		Payload: MessageStoreFile{
-			Key: key,
-			Size: 8,
+			Key:  key,
+			Size: n,
 		},
 	}
 	if err := s.broadcast(msg); err != nil {
 		return succWrite, err
 	}
+	time.Sleep(500 * time.Millisecond)
+	succWrite += s.stream(dataBuff)
 	return succWrite, nil
+}
+
+func (s *Server) stream(r io.Reader) (succWrite int) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for addr, peer := range s.peers {
+		if _, err := peer.Write([]byte{p2p.IncomingStream}); err != nil {
+			fmt.Printf("Write to %v failed: %v\n", addr, err)
+			continue
+		}
+		n, err := io.Copy(peer, r)
+		if err != nil {
+			fmt.Printf("Write to %v failed: %v\n", addr, err)
+			continue
+		}
+		succWrite++
+		log.Printf("Server (%v) success stream %vbytes to %v\n", s.store.Root, n, addr)
+	}
+	return
 }
 
 func (s *Server) broadcast(m *Message) error {
@@ -113,14 +135,14 @@ func (s *Server) process() {
 	defer s.cleanUp()
 	for {
 		select {
-		case rpc := <- s.transport.Consume():
+		case rpc := <-s.transport.Consume():
 			var msg Message
 			if err := gob.NewDecoder(bytes.NewReader(rpc.Payload)).Decode(&msg); err != nil {
 				log.Printf("Server (%v) decode error: %v\n", s.store.Root, err)
 				continue
 			}
 			if err := s.handleMessage(msg, rpc.From); err != nil {
-				log.Printf("Server (%v) decode error: %v\n", s.store.Root, err)
+				log.Printf("Server (%v) handleMessage error: %v\n", s.store.Root, err)
 				continue
 			}
 		case <-s.quitCh:
@@ -130,9 +152,9 @@ func (s *Server) process() {
 }
 
 func (s *Server) handleMessage(m Message, from string) error {
-	switch data := m.Payload.(type) {
+	switch payload := m.Payload.(type) {
 	case MessageStoreFile:
-		return s.handleMessageStoreFile(data, from)
+		return s.handleMessageStoreFile(payload, from)
 	default:
 		log.Println("No suitable Payload type")
 		return nil
@@ -140,9 +162,27 @@ func (s *Server) handleMessage(m Message, from string) error {
 }
 
 func (s *Server) handleMessageStoreFile(m MessageStoreFile, from string) error {
-	log.Println("Size:", m.Size)
-	log.Println("Key:", m.Key)
+	peer, err := s.getPeer(from)
+	if err != nil {
+		return err
+	}
+	defer peer.Done()
+	n, err := s.store.Write(m.Key, io.LimitReader(peer, m.Size))
+	if err != nil {
+		return fmt.Errorf("server (%v) write failed %v", s.store.Root, err)
+	}
+	log.Printf("server (%v) success store %v bytes\n", s.store.Root, n)
 	return nil
+}
+
+func (s *Server) getPeer(from string) (p2p.Peer, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	peer, ok := s.peers[from]
+	if !ok {
+		return nil, fmt.Errorf("(%v) peer not in server (%v)'s connected peers", from, s.store.Root)
+	}
+	return peer, nil
 }
 
 func (s *Server) Close() {

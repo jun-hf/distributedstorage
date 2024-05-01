@@ -112,6 +112,7 @@ func (t *TCPTransport) handleConnection(conn net.Conn, inbound bool) {
 	fmt.Printf("%v had established connection from %v\n", conn.LocalAddr().String(), conn.RemoteAddr().String())
 	for {
 		rpc := RPC{}
+		rpc.From = peer.RemoteAddr().String()
 		err = t.Decoder.Decode(conn, &rpc)
 		if err == io.EOF || errors.Is(err, net.ErrClosed) {
 			return
@@ -122,10 +123,10 @@ func (t *TCPTransport) handleConnection(conn net.Conn, inbound bool) {
 		if rpc.Stream {
 			peer.wg.Add(1)
 			fmt.Println("streaming from:", peer.RemoteAddr().String())
-			peer.wg.Done()
+			peer.wg.Wait()
+			fmt.Println("stream completed from:", peer.RemoteAddr().String())
 			continue
 		}
-		rpc.From = peer.RemoteAddr().Network()
 		t.incomingRpc <- rpc
 	}
 }

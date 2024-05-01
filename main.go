@@ -22,10 +22,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	time.Sleep(2 *time.Second)
-	if _, err := server3030.Store("Hello", strings.NewReader("JIDJISED")); err != nil {
+	time.Sleep(1 *time.Second)
+	n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
+	if err != nil {
 		fmt.Print(err)
 	}
+	fmt.Println("Server 3030 stream:", n)
 	select {}
 }
 
