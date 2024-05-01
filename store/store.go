@@ -79,6 +79,18 @@ func (s *Store) Write(key string, r io.Reader) (int64, error) {
 	return s.writeStream(key, r)
 }
 
+func (s *Store) FileSize(key string) (int64, error) {
+	if !s.Has(key) {
+		return 0, fmt.Errorf("key %v does not exist", key)
+	}
+	keyPath := s.TransformPathFunc(key)
+	f, err :=os.Stat(keyPath.FileName)
+	if err != nil {
+		return 0, err
+	}
+	return f.Size(), nil
+}
+
 func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
 	keyPath := s.TransformPathFunc(key)
 	path := s.Path(keyPath)
