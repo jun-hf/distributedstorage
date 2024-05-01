@@ -84,7 +84,7 @@ func (s *Store) FileSize(key string) (int64, error) {
 		return 0, fmt.Errorf("key %v does not exist", key)
 	}
 	keyPath := s.TransformPathFunc(key)
-	f, err :=os.Stat(keyPath.FileName)
+	f, err :=os.Stat(s.FilePath(keyPath))
 	if err != nil {
 		return 0, err
 	}

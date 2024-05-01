@@ -12,3 +12,9 @@ type MessageStoreFile struct {
 	Key string 
 	Size int64
 }
+
+// MessageGetFile is the message to get the file
+// with the Key
+type MessageGetFile struct {
+	Key string
+}

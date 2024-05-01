@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/jun-hf/distributedstorage/p2p"
@@ -24,11 +23,11 @@ func main() {
 	}
 
 	time.Sleep(1 *time.Second)
-	n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
-	if err != nil {
-		fmt.Print(err)
-	}
-	fmt.Println("Server 3030 stream:", n)
+	// n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
+	// if err != nil {
+	// 	fmt.Print(err)
+	// }
+	// fmt.Println("Server 3030 stream:", n)
 
 	r, err := server3030.Read("Hello")
 	if err != nil {

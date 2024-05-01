@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 	"io"
@@ -54,10 +55,35 @@ func (s *Server) Start() error {
 
 func (s *Server) Read(key string) (io.Reader, error) {
 	if s.store.Has(key) {
+		log.Println("Local")
 		return s.store.Read(key)
 	}
-	return nil, nil
+	msg := &Message{
+		Payload: MessageGetFile{
+			Key: key,
+		},
+	}
+	if err := s.broadcast(msg); err != nil {
+		return nil, err
+	}
+
+
+	s.mu.RLock()
+	for _, peer := range s.peers {
+		// Get the fileSize 
+		var fileSize int64
+		binary.Read(peer, binary.LittleEndian, &fileSize)
+		if _, err := s.store.Write(key, io.LimitReader(peer, fileSize)); err != nil {
+			return nil, err
+		}
+		log.Println("Network")
+		peer.Done()
+	}
+	s.mu.RUnlock()
+
+	return s.store.Read(key)
 }
+
 // Store the content to the server and also the peers's server
 // will return the amount of success store inclusive of the
 // success store in the own server.
@@ -81,11 +107,11 @@ func (s *Server) Store(key string, data io.Reader) (int, error) {
 		return succWrite, err
 	}
 	time.Sleep(500 * time.Millisecond)
-	succWrite += s.stream(dataBuff)
+	succWrite += s.writeStream(dataBuff)
 	return succWrite, nil
 }
 
-func (s *Server) stream(r io.Reader) (succWrite int) {
+func (s *Server) writeStream(r io.Reader) (succWrite int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for addr, peer := range s.peers {
@@ -149,10 +175,41 @@ func (s *Server) handleMessage(m Message, from string) error {
 	switch payload := m.Payload.(type) {
 	case MessageStoreFile:
 		return s.handleMessageStoreFile(payload, from)
+	case MessageGetFile:
+		return s.handleMessageGetFile(payload, from)
 	default:
 		log.Println("No suitable Payload type")
 		return nil
 	}
+}
+
+func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
+	if !s.store.Has(m.Key) {
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+	}
+
+	p, err := s.getPeer(from)
+	if err != nil {
+		return err
+	}
+
+	size, err := s.store.FileSize(m.Key)
+	if err != nil {
+		return err
+	}
+
+	r, err := s.store.Read(m.Key)
+	if err != nil {
+		return err
+	}
+	p.Write([]byte{p2p.IncomingStream})
+	// Sending the fileSize first after opening up the stream
+	binary.Write(p, binary.LittleEndian, size)
+	_, err = io.Copy(p, r)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Server) handleMessageStoreFile(m MessageStoreFile, from string) error {
@@ -217,4 +274,5 @@ func (s *Server) dial() error {
 
 func init() {
 	gob.Register(MessageStoreFile{})
+	gob.Register(MessageGetFile{})
 }
