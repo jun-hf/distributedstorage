@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jun-hf/distributedstorage/cryto"
 	"github.com/jun-hf/distributedstorage/p2p"
 	"github.com/jun-hf/distributedstorage/store"
 )
@@ -26,6 +27,7 @@ type Server struct {
 	store          *store.Store
 	quitCh         chan struct{}
 	outboundServer []string
+	encryptKey     []byte
 
 	mu    sync.RWMutex
 	peers map[string]p2p.Peer
@@ -41,6 +43,7 @@ func New(opts ServerOpts) *Server {
 		store:          store,
 		quitCh:         make(chan struct{}),
 		outboundServer: opts.OutboundServer,
+		encryptKey:     cryto.New(),
 		peers:          make(map[string]p2p.Peer),
 	}
 }
@@ -67,10 +70,9 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		return nil, err
 	}
 
-
 	s.mu.RLock()
 	for _, peer := range s.peers {
-		// Get the fileSize 
+		// Get the fileSize
 		var fileSize int64
 		binary.Read(peer, binary.LittleEndian, &fileSize)
 		if _, err := s.store.Write(key, io.LimitReader(peer, fileSize)); err != nil {

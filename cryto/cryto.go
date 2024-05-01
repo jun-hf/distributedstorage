@@ -24,7 +24,7 @@ func CopyDecrypt(key []byte, src io.Reader, dst io.Writer) (int, error) {
 		return 0, err
 	}
 	var (
-		buf = make([]byte, 32*1024)
+		buf    = make([]byte, 32*1024)
 		stream = cipher.NewCTR(block, iv)
 	)
 	for {
@@ -60,7 +60,7 @@ func CopyEncrypt(key []byte, src io.Reader, dst io.Writer) (int, error) {
 	}
 
 	var (
-		buf = make([]byte, 32*1024)
+		buf    = make([]byte, 32*1024)
 		stream = cipher.NewCTR(block, iv)
 	)
 	for {

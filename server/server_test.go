@@ -16,16 +16,16 @@ func TestServer(t *testing.T) {
 	assert.Nil(t, server3030.Start())
 }
 
-func CreateServer(listenAddr, root string, outboundServer []string) *Server{
+func CreateServer(listenAddr, root string, outboundServer []string) *Server {
 	transport := p2p.NewTCPTransport(p2p.TCPTransportOpts{
-		ListenAddr: listenAddr,
+		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NoHandshakeFunc,
-		Decoder: p2p.DefaultDecoder{},
+		Decoder:       p2p.DefaultDecoder{},
 	})
 	serverOpts := ServerOpts{
-		Transport: transport,
-		Root: root,
-		OutboundServer: outboundServer,
+		Transport:         transport,
+		Root:              root,
+		OutboundServer:    outboundServer,
 		TransformPathFunc: store.SHA1PathTransformFunc,
 	}
 	s1 := New(serverOpts)

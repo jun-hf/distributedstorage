@@ -38,8 +38,8 @@ func TestStore(t *testing.T) {
 	assert.Equal(t, "testStore/aaf4c/61ddc/c5e8a/2dabe/de0f3/b482c/d9aea/9434d/aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d", store.FilePath(keyPath))
 
 	for i := range 100 {
-		key := fmt.Sprintf("file%v",i)
-		content := "Inside the file" 
+		key := fmt.Sprintf("file%v", i)
+		content := "Inside the file"
 		n, err := store.Write(key, strings.NewReader(content))
 		if err != nil {
 			t.Fatal("Write failed:", err)

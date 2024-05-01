@@ -22,7 +22,7 @@ func (k KeyPath) FilePath() string {
 
 type StoreOpts struct {
 	TransformPathFunc TransformPathFunc
-	Root string
+	Root              string
 }
 
 type Store struct {
@@ -84,7 +84,7 @@ func (s *Store) FileSize(key string) (int64, error) {
 		return 0, fmt.Errorf("key %v does not exist", key)
 	}
 	keyPath := s.TransformPathFunc(key)
-	f, err :=os.Stat(s.FilePath(keyPath))
+	f, err := os.Stat(s.FilePath(keyPath))
 	if err != nil {
 		return 0, err
 	}
@@ -128,20 +128,20 @@ func (s *Store) deleteFullPath(fileP string) error {
 }
 
 var (
-	defaultRoot = "storeDir"
-	DefaultPathTransformFunc = func (key string) KeyPath {
+	defaultRoot              = "storeDir"
+	DefaultPathTransformFunc = func(key string) KeyPath {
 		return KeyPath{PathName: key, FileName: key}
 	}
-	SHA1PathTransformFunc = func (key string) KeyPath {
+	SHA1PathTransformFunc = func(key string) KeyPath {
 		hash := sha1.Sum([]byte(key))
 		hashStr := hex.EncodeToString(hash[:])
-	
+
 		blockSize := 5
-		numBlock := len(hashStr)/blockSize
+		numBlock := len(hashStr) / blockSize
 		paths := make([]string, numBlock)
-	
+
 		for i := range numBlock {
-			from, to := i*blockSize, i*blockSize + blockSize
+			from, to := i*blockSize, i*blockSize+blockSize
 			paths[i] = hashStr[from:to]
 		}
 		return KeyPath{

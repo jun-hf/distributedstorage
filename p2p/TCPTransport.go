@@ -12,14 +12,14 @@ import (
 type TCPPeer struct {
 	net.Conn
 	inbound bool
-	wg *sync.WaitGroup
+	wg      *sync.WaitGroup
 }
 
 func NewTCPPeer(conn net.Conn, inbound bool) *TCPPeer {
 	return &TCPPeer{
-		Conn: conn,
+		Conn:    conn,
 		inbound: inbound,
-		wg: &sync.WaitGroup{},
+		wg:      &sync.WaitGroup{},
 	}
 }
 
@@ -28,22 +28,22 @@ func (t *TCPPeer) Done() {
 }
 
 type TCPTransportOpts struct {
-	ListenAddr string
+	ListenAddr    string
 	HandshakeFunc HandshakeFunc
-	Decoder Decoder
-	OnPeer func(Peer) error
+	Decoder       Decoder
+	OnPeer        func(Peer) error
 }
 
 type TCPTransport struct {
 	TCPTransportOpts
 	incomingRpc chan RPC
-	listener net.Listener
+	listener    net.Listener
 }
 
 func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
-		incomingRpc: make(chan RPC),
+		incomingRpc:      make(chan RPC),
 	}
 }
 

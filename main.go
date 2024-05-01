@@ -22,7 +22,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	time.Sleep(1 *time.Second)
+	time.Sleep(1 * time.Second)
 	// n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
 	// if err != nil {
 	// 	fmt.Print(err)
@@ -39,17 +39,16 @@ func main() {
 	select {}
 }
 
-
-func CreateServer(listenAddr, root string, outboundServer []string) *server.Server{
+func CreateServer(listenAddr, root string, outboundServer []string) *server.Server {
 	transport := p2p.NewTCPTransport(p2p.TCPTransportOpts{
-		ListenAddr: listenAddr,
+		ListenAddr:    listenAddr,
 		HandshakeFunc: p2p.NoHandshakeFunc,
-		Decoder: p2p.DefaultDecoder{},
+		Decoder:       p2p.DefaultDecoder{},
 	})
 	serverOpts := server.ServerOpts{
-		Transport: transport,
-		Root: root,
-		OutboundServer: outboundServer,
+		Transport:         transport,
+		Root:              root,
+		OutboundServer:    outboundServer,
 		TransformPathFunc: store.SHA1PathTransformFunc,
 	}
 	s1 := server.New(serverOpts)
