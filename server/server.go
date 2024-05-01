@@ -13,18 +13,6 @@ import (
 	"github.com/jun-hf/distributedstorage/store"
 )
 
-// the goal
-// Create a server with test that get write and stream
-// Create a server struct Done
-// Now create a test for creating a server
-// Next, create Start function
-// What do I want my start function to do?
-// It should dail all the peers from the list of outbound node start the
-// transport server and Accept connection
-// Next?
-// I want create a function that store the file in our own server and send the same content to the peers server
-// How can we pass OnPeer better
-
 type ServerOpts struct {
 	Transport         p2p.Transport
 	Root              string
@@ -64,6 +52,12 @@ func (s *Server) Start() error {
 	return s.dial()
 }
 
+func (s *Server) Read(key string) (io.Reader, error) {
+	if s.store.Has(key) {
+		return s.store.Read(key)
+	}
+	return nil, nil
+}
 // Store the content to the server and also the peers's server
 // will return the amount of success store inclusive of the
 // success store in the own server.
@@ -105,7 +99,7 @@ func (s *Server) stream(r io.Reader) (succWrite int) {
 			continue
 		}
 		succWrite++
-		log.Printf("Server (%v) success stream %vbytes to %v\n", s.store.Root, n, addr)
+		log.Printf("Server (%v) success stream %v bytes to %v\n", s.store.Root, n, addr)
 	}
 	return
 }

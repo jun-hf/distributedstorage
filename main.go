@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"strings"
 	"time"
@@ -28,6 +29,14 @@ func main() {
 		fmt.Print(err)
 	}
 	fmt.Println("Server 3030 stream:", n)
+
+	r, err := server3030.Read("Hello")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	b, _ := io.ReadAll(r)
+	fmt.Println("Read: ", string(b))
 	select {}
 }
 
