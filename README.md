@@ -7,8 +7,9 @@ A distributed content addressable storage will encryptions.
 
 # Features
 - Retrieve data with a key
-- Encryptions data send over the network
+- Data sending across the network is encrypted
 - p2p package has a fully built TCP server
+- Integrity of the data is fully secure by checking the checksum of every incoming read of the data.
 
 
 ## Usage
