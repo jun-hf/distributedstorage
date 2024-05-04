@@ -75,7 +75,7 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		// Get the fileSize
 		var fileSize int64
 		binary.Read(peer, binary.LittleEndian, &fileSize)
-		if _, err := s.store.Write(key, io.LimitReader(peer, fileSize)); err != nil {
+		if _, err := s.store.WriteDecrypt(s.encryptKey, key, io.LimitReader(peer, fileSize)); err != nil {
 			return nil, err
 		}
 		log.Println("Getting key over the network")
@@ -200,14 +200,10 @@ func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
 		return err
 	}
 
-	r, err := s.store.Read(m.Key)
-	if err != nil {
-		return err
-	}
 	p.Write([]byte{p2p.IncomingStream})
 	// Sending the fileSize first after opening up the stream
 	binary.Write(p, binary.LittleEndian, size)
-	_, err = io.Copy(p, r)
+	_, err = s.store.CopyRead(m.Key, p)
 	if err != nil {
 		return err
 	}

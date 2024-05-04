@@ -10,6 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/jun-hf/distributedstorage/cryto"
 )
 
 type KeyPath struct {
@@ -94,6 +96,22 @@ func (s *Store) Write(key string, r io.Reader) (int64, error) {
 	return s.writeStream(key, r)
 }
 
+func (s *Store) WriteDecrypt(encryptKey []byte, key string, r io.Reader) (int64, error) {
+	keyPath := s.TransformPathFunc(key)
+	path := s.Path(keyPath)
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return 0, err
+	}
+	fileP := s.FilePath(keyPath)
+	f, err := os.Create(fileP)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	n, err := cryto.CopyDecrypt(encryptKey, r, f)
+	return int64(n), err
+}
+
 func (s *Store) FileSize(key string) (int64, error) {
 	if !s.Has(key) {
 		return 0, fmt.Errorf("key %v does not exist", key)
@@ -117,6 +135,7 @@ func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+	defer f.Close()
 	return io.Copy(f, r)
 }
 
