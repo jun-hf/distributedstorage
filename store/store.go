@@ -65,7 +65,7 @@ func (s *Store) Read(key string) (io.Reader, error) {
 	return bytes.NewReader(data), nil
 }
 
-func (s *Store) CopyRead(key string, dst io.Writer) (n, error) {
+func (s *Store) CopyRead(key string, dst io.Writer) (int64, error) {
 	pathKey := s.TransformPathFunc(key)
 	fileP := s.FilePath(pathKey)
 
@@ -73,10 +73,10 @@ func (s *Store) CopyRead(key string, dst io.Writer) (n, error) {
 		return 0, fmt.Errorf("key %v does not exists", key)
 	}
 	f, err := os.Open(fileP)
-	defer f.Close()
 	if err != nil {
 		return 0, err
 	}
+	defer f.Close()
 	return io.Copy(dst, f)
 }
 
