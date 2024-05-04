@@ -41,25 +41,25 @@ func New(opts StoreOpts) *Store {
 	return &Store{StoreOpts: opts}
 }
 
-func (s *Store) Path(p KeyPath) string {
-	return filepath.Join(s.Root, p.PathName)
+func (s *Store) Path(id string, p KeyPath) string {
+	return filepath.Join(s.Root, id, p.PathName)
 }
 
-func (s *Store) FilePath(p KeyPath) string {
-	return filepath.Join(s.Root, p.FilePath())
+func (s *Store) FilePath(id string, p KeyPath) string {
+	return filepath.Join(s.Root, id, p.FilePath())
 }
 
-func (s *Store) Has(key string) bool {
+func (s *Store) Has(id, key string) bool {
 	pathKey := s.TransformPathFunc(key)
-	fileP := s.FilePath(pathKey)
+	fileP := s.FilePath(id, pathKey)
 
 	_, err := os.Stat(fileP)
 	return !errors.Is(err, os.ErrNotExist)
 }
 
-func (s *Store) Read(key string) (io.Reader, error) {
+func (s *Store) Read(id, key string) (io.Reader, error) {
 	pathKey := s.TransformPathFunc(key)
-	fileP := s.FilePath(pathKey)
+	fileP := s.FilePath(id, pathKey)
 	data, err := os.ReadFile(fileP)
 	if err != nil {
 		return nil, err
@@ -67,11 +67,11 @@ func (s *Store) Read(key string) (io.Reader, error) {
 	return bytes.NewReader(data), nil
 }
 
-func (s *Store) CopyRead(key string, dst io.Writer) (int64, error) {
+func (s *Store) CopyRead(id, key string, dst io.Writer) (int64, error) {
 	pathKey := s.TransformPathFunc(key)
-	fileP := s.FilePath(pathKey)
+	fileP := s.FilePath(id, pathKey)
 
-	if !s.Has(key) {
+	if !s.Has(id, key) {
 		return 0, fmt.Errorf("key %v does not exists", key)
 	}
 	f, err := os.Open(fileP)
@@ -82,22 +82,22 @@ func (s *Store) CopyRead(key string, dst io.Writer) (int64, error) {
 	return io.Copy(dst, f)
 }
 
-func (s *Store) Delete(key string) error {
+func (s *Store) Delete(id, key string) error {
 	pathKey := s.TransformPathFunc(key)
-	fileP := s.FilePath(pathKey)
-	return s.deleteFullPath(fileP)
+	fileP := s.FilePath(id, pathKey)
+	return s.deleteFullPath(id, fileP)
 }
 
 func (s *Store) ClearAll() error {
 	return os.RemoveAll(s.Root)
 }
 
-func (s *Store) Write(key string, r io.Reader) (int64, error) {
-	return s.writeStream(key, r)
+func (s *Store) Write(id, key string, r io.Reader) (int64, error) {
+	return s.writeStream(id, key, r)
 }
 
-func (s *Store) WriteDecrypt(encryptKey []byte, key string, r io.Reader) (int64, error) {
-	f, err := s.openFileToWrite(key)
+func (s *Store) WriteDecrypt(encryptKey []byte, id, key string, r io.Reader) (int64, error) {
+	f, err := s.openFileToWrite(id, key)
 	if err != nil {
 		return 0, err
 	}
@@ -106,8 +106,8 @@ func (s *Store) WriteDecrypt(encryptKey []byte, key string, r io.Reader) (int64,
 	return int64(n), err
 }
 
-func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
-	f, err := s.openFileToWrite(key)
+func (s *Store) writeStream(id, key string, r io.Reader) (int64, error) {
+	f, err := s.openFileToWrite(id, key)
 	if err != nil {
 	  return 0, err
 	}
@@ -115,34 +115,35 @@ func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
 	return io.Copy(f, r)
 }
 
-func (s *Store) openFileToWrite(key string) (*os.File, error) {
+func (s *Store) openFileToWrite(id, key string) (*os.File, error) {
 	keyPath := s.TransformPathFunc(key)
-	path := s.Path(keyPath)
+	path := s.Path(id, keyPath)
 	if err := os.MkdirAll(path, os.ModePerm); err != nil {
 		return nil, err
 	}
-	fileP := s.FilePath(keyPath)
+	fileP := s.FilePath(id, keyPath)
 	return os.Create(fileP)
 }
 
-func (s *Store) FileSize(key string) (int64, error) {
-	if !s.Has(key) {
+func (s *Store) FileSize(id, key string) (int64, error) {
+	if !s.Has(id, key) {
 		return 0, fmt.Errorf("key %v does not exist", key)
 	}
 	keyPath := s.TransformPathFunc(key)
-	f, err := os.Stat(s.FilePath(keyPath))
+	f, err := os.Stat(s.FilePath(id, keyPath))
 	if err != nil {
 		return 0, err
 	}
 	return f.Size(), nil
 }
 
-func (s *Store) deleteFullPath(fileP string) error {
+func (s *Store) deleteFullPath(id, fileP string) error {
 	if string(fileP[0]) == "/" {
-		fileP = "." + fileP
+		fileP = fileP[1:]
 	}
+	stoppingDir := fmt.Sprintf("%v/%+v", s.Root, id)
 	for {
-		if fileP == s.Root {
+		if fileP == stoppingDir {
 			return nil
 		}
 		if _, err := os.Stat(fileP); err != nil {
