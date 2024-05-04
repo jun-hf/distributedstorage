@@ -89,8 +89,8 @@ func (s *Server) Read(key string) (io.Reader, error) {
 // Store the content to the server and also the peers's server
 // will return the amount of success store inclusive of the
 // success store in the own server.
-func (s *Server) Store(key string, data io.Reader) (int, error) {
-	succWrite := 0
+func (s *Server) Store(key string, data io.Reader) (int64, error) {
+	succWrite := int64(0)
 	dataBuff := new(bytes.Buffer)
 	tee := io.TeeReader(data, dataBuff)
 	n, err := s.store.Write(key, tee)
@@ -109,27 +109,23 @@ func (s *Server) Store(key string, data io.Reader) (int, error) {
 		return succWrite, err
 	}
 	time.Sleep(500 * time.Millisecond)
-	succWrite += s.writeStream(dataBuff)
-	return succWrite, nil
+	return s.writeStream(dataBuff)
 }
 
-func (s *Server) writeStream(r io.Reader) (succWrite int) {
+func (s *Server) writeStream(r io.Reader) (int64, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	for addr, peer := range s.peers {
-		if _, err := peer.Write([]byte{p2p.IncomingStream}); err != nil {
-			fmt.Printf("Write to %v failed: %v\n", addr, err)
-			continue
-		}
-		n, err := cryto.CopyEncrypt(s.encryptKey, r, peer)
-		if err != nil {
-			fmt.Printf("Write to %v failed: %v\n", addr, err)
-			continue
-		}
-		succWrite++
-		log.Printf("Server (%v) success stream %v bytes to %v\n", s.store.Root, n, addr)
+	peerList := []io.Writer{}
+	for _, p := range s.peers {
+		peerList = append(peerList, p)
 	}
-	return
+	mw := io.MultiWriter(peerList...)
+	_, err := io.Copy(mw, bytes.NewReader([]byte{p2p.IncomingStream}))
+	if err != nil {
+		return 0, err
+	}
+	n, err := cryto.CopyEncrypt(s.encryptKey, r, mw)
+	return int64(n), err
 }
 
 func (s *Server) broadcast(m *Message) error {
@@ -216,7 +212,9 @@ func (s *Server) handleMessageStoreFile(m MessageStoreFile, from string) error {
 		return err
 	}
 	defer peer.Done()
+	fmt.Printf("peer: %v, size: %+v\n", peer.LocalAddr(), m.Size)
 	n, err := s.store.Write(m.Key, io.LimitReader(peer, m.Size))
+	fmt.Println("Done")
 	if err != nil {
 		return fmt.Errorf("server (%v) write failed %v", s.store.Root, err)
 	}

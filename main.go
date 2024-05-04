@@ -2,11 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"strings"
-
-	// "strings"
 	"time"
 
 	"github.com/jun-hf/distributedstorage/p2p"
@@ -25,20 +22,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	time.Sleep(1 * time.Second)
-	n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
-	if err != nil {
-		fmt.Print(err)
-	}
-	fmt.Println("Server 3030 stream:", n)
-
-	r, err := server3030.Read("Hello")
-	if err != nil {
+	server7000 := CreateServer(":7000", "7000-dir", []string{":8080", ":3030"})
+	if err := server7000.Start(); err != nil {
 		log.Fatal(err)
 	}
-
-	b, _ := io.ReadAll(r)
-	fmt.Println("Read: ", string(b))
+	time.Sleep(1 * time.Second) // wait for all the server to initialize
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("item_%+v", i)
+		data := fmt.Sprintf("big conten%+v", i)
+		n, err := server7000.Store(key, strings.NewReader(data))
+		if err != nil {
+			fmt.Print(err)
+		}
+		fmt.Println("Server 7000 stream:", n)
+	}
 	select {}
 }
 
