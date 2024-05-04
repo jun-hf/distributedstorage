@@ -66,7 +66,19 @@ func (s *Server) Delete(key string) error {
 	if !s.store.Has(s.id, key) {
 		return fmt.Errorf("%+v does not exists", key)
 	}
-	return s.store.Delete(s.id, key)
+	
+	err := s.store.Delete(s.id, key)
+	if err != nil {
+		return err
+	}
+
+	msg := &Message{
+		Payload: MessageDeleteKey{
+			Key: cryto.Hash(key),
+			Id: s.id,
+		},
+	}
+	return s.broadcast(msg)
 }
 
 func (s *Server) Read(key string) (io.Reader, error) {
@@ -190,10 +202,21 @@ func (s *Server) handleMessage(m Message, from string) error {
 		return s.handleMessageStoreFile(payload, from)
 	case MessageGetFile:
 		return s.handleMessageGetFile(payload, from)
+	case MessageDeleteKey:
+		return s.handleMessageDelete(payload)
 	default:
 		log.Println("No suitable Payload type")
 		return nil
 	}
+}
+
+func (s *Server) handleMessageDelete(m MessageDeleteKey) error {
+	if !s.store.Has(m.Id, m.Key) {
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+	}
+	fmt.Println("Id:", m.Id)
+	fmt.Println("Key:", m.Key)
+	return s.store.Delete(m.Id, m.Key)
 }
 
 func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
@@ -286,4 +309,5 @@ func (s *Server) dial() error {
 func init() {
 	gob.Register(MessageStoreFile{})
 	gob.Register(MessageGetFile{})
+	gob.Register(MessageDeleteKey{})
 }
