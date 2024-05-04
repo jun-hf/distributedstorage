@@ -56,6 +56,13 @@ func (s *Server) Start() error {
 	return s.dial()
 }
 
+func (s *Server) Delete(key string) error {
+	if !s.store.Has(key) {
+		return fmt.Errorf("%+v does not exists", key)
+	}
+	return s.store.Delete(key)
+}
+
 func (s *Server) Read(key string) (io.Reader, error) {
 	if s.store.Has(key) {
 		log.Printf("Getting key (%v) from local storage", key)
@@ -63,7 +70,7 @@ func (s *Server) Read(key string) (io.Reader, error) {
 	}
 	msg := &Message{
 		Payload: MessageGetFile{
-			Key: key,
+			Key: cryto.Hash(key),
 		},
 	}
 	if err := s.broadcast(msg); err != nil {
@@ -101,7 +108,7 @@ func (s *Server) Store(key string, data io.Reader) (int64, error) {
 
 	msg := &Message{
 		Payload: MessageStoreFile{
-			Key:  key,
+			Key:  cryto.Hash(key),
 			Size: n + 16,
 		},
 	}
