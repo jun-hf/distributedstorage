@@ -20,3 +20,10 @@ type MessageGetFile struct {
 	Key string
 	Id string
 }
+
+// MessageDeleteKey is the message send
+// to peer to delete the relevant key and Id
+type MessageDeleteKey struct {
+	Key string 
+	Id string
+}
