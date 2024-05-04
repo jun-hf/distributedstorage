@@ -9,6 +9,7 @@ type Message struct {
 // MessageStoreFile is the message sent to peers to
 // notify the metadata of the file
 type MessageStoreFile struct {
+	Id string
 	Key  string
 	Size int64
 }
@@ -17,4 +18,5 @@ type MessageStoreFile struct {
 // with the Key
 type MessageGetFile struct {
 	Key string
+	Id string
 }

@@ -20,6 +20,7 @@ type ServerOpts struct {
 	Root              string
 	OutboundServer    []string
 	TransformPathFunc store.TransformPathFunc
+	Id string
 }
 
 type Server struct {
@@ -28,6 +29,7 @@ type Server struct {
 	quitCh         chan struct{}
 	outboundServer []string
 	encryptKey     []byte
+	id string
 
 	mu    sync.RWMutex
 	peers map[string]p2p.Peer
@@ -38,6 +40,9 @@ func New(opts ServerOpts) *Server {
 		TransformPathFunc: opts.TransformPathFunc,
 		Root:              opts.Root,
 	})
+	if len(opts.Id) == 0 {
+		opts.Id = cryto.UUID()
+	}
 	return &Server{
 		transport:      opts.Transport,
 		store:          store,
@@ -45,6 +50,7 @@ func New(opts ServerOpts) *Server {
 		outboundServer: opts.OutboundServer,
 		encryptKey:     cryto.New(),
 		peers:          make(map[string]p2p.Peer),
+		id: opts.Id,
 	}
 }
 
@@ -57,20 +63,21 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Delete(key string) error {
-	if !s.store.Has(key) {
+	if !s.store.Has(s.id, key) {
 		return fmt.Errorf("%+v does not exists", key)
 	}
-	return s.store.Delete(key)
+	return s.store.Delete(s.id, key)
 }
 
 func (s *Server) Read(key string) (io.Reader, error) {
-	if s.store.Has(key) {
+	if s.store.Has(s.id, key) {
 		log.Printf("Getting key (%v) from local storage", key)
-		return s.store.Read(key)
+		return s.store.Read(s.id, key)
 	}
 	msg := &Message{
 		Payload: MessageGetFile{
 			Key: cryto.Hash(key),
+			Id: s.id,
 		},
 	}
 	if err := s.broadcast(msg); err != nil {
@@ -82,7 +89,7 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		// Get the fileSize
 		var fileSize int64
 		binary.Read(peer, binary.LittleEndian, &fileSize)
-		if _, err := s.store.WriteDecrypt(s.encryptKey, key, io.LimitReader(peer, fileSize)); err != nil {
+		if _, err := s.store.WriteDecrypt(s.encryptKey, s.id, key, io.LimitReader(peer, fileSize)); err != nil {
 			return nil, err
 		}
 		log.Printf("Getting key (%v) from remote storage", key)
@@ -90,7 +97,7 @@ func (s *Server) Read(key string) (io.Reader, error) {
 	}
 	s.mu.RUnlock()
 
-	return s.store.Read(key)
+	return s.store.Read(s.id, key)
 }
 
 // Store the content to the server and also the peers's server
@@ -100,7 +107,7 @@ func (s *Server) Store(key string, data io.Reader) (int64, error) {
 	succWrite := int64(0)
 	dataBuff := new(bytes.Buffer)
 	tee := io.TeeReader(data, dataBuff)
-	n, err := s.store.Write(key, tee)
+	n, err := s.store.Write(s.id, key, tee)
 	if err != nil {
 		return 0, err
 	}
@@ -108,6 +115,7 @@ func (s *Server) Store(key string, data io.Reader) (int64, error) {
 
 	msg := &Message{
 		Payload: MessageStoreFile{
+			Id: s.id,
 			Key:  cryto.Hash(key),
 			Size: n + 16,
 		},
@@ -189,7 +197,7 @@ func (s *Server) handleMessage(m Message, from string) error {
 }
 
 func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
-	if !s.store.Has(m.Key) {
+	if !s.store.Has(m.Id, m.Key) {
 		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
 	}
 
@@ -198,7 +206,7 @@ func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
 		return err
 	}
 
-	size, err := s.store.FileSize(m.Key)
+	size, err := s.store.FileSize(m.Id, m.Key)
 	if err != nil {
 		return err
 	}
@@ -206,7 +214,7 @@ func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
 	p.Write([]byte{p2p.IncomingStream})
 	// Sending the fileSize first after opening up the stream
 	binary.Write(p, binary.LittleEndian, size)
-	_, err = s.store.CopyRead(m.Key, p)
+	_, err = s.store.CopyRead(m.Id, m.Key, p)
 	if err != nil {
 		return err
 	}
@@ -220,7 +228,7 @@ func (s *Server) handleMessageStoreFile(m MessageStoreFile, from string) error {
 	}
 	defer peer.Done()
 	fmt.Printf("peer: %v, size: %+v\n", peer.LocalAddr(), m.Size)
-	n, err := s.store.Write(m.Key, io.LimitReader(peer, m.Size))
+	n, err := s.store.Write(m.Id, m.Key, io.LimitReader(peer, m.Size))
 	fmt.Println("Done")
 	if err != nil {
 		return fmt.Errorf("server (%v) write failed %v", s.store.Root, err)
