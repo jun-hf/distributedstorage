@@ -18,9 +18,12 @@ func TestCopyEncrypt(t *testing.T) {
 		t.Errorf("invalid byte size")
 	}
 	res := new(bytes.Buffer)
-	_, err = CopyDecrypt(key, dst, res)
+	n, err = CopyDecrypt(key, dst, res)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if n != res.Len() {
+		t.Fatalf("invalid written bytes actual (%v), got (%v)", res.Len(), n)
 	}
 	if res.String() != data {
 		t.Fatalf("decryption failed expected (%v) got (%v)", data, res.String())
