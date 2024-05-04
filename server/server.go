@@ -58,7 +58,7 @@ func (s *Server) Start() error {
 
 func (s *Server) Read(key string) (io.Reader, error) {
 	if s.store.Has(key) {
-		log.Println("Local storage")
+		log.Printf("Getting key (%v) from local storage", key)
 		return s.store.Read(key)
 	}
 	msg := &Message{
@@ -78,7 +78,7 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		if _, err := s.store.WriteDecrypt(s.encryptKey, key, io.LimitReader(peer, fileSize)); err != nil {
 			return nil, err
 		}
-		log.Println("Getting key over the network")
+		log.Printf("Getting key (%v) from remote storage", key)
 		peer.Done()
 	}
 	s.mu.RUnlock()

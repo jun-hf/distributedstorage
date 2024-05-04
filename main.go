@@ -32,8 +32,6 @@ func main() {
 	}
 	fmt.Println("Server 3030 stream:", n)
 
-	fmt.Println("Sleeping for 10 seconds")
-	time.Sleep(10 * time.Second)
 	r, err := server3030.Read("Hello")
 	if err != nil {
 		log.Fatal(err)

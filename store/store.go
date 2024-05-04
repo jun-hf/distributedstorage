@@ -97,19 +97,32 @@ func (s *Store) Write(key string, r io.Reader) (int64, error) {
 }
 
 func (s *Store) WriteDecrypt(encryptKey []byte, key string, r io.Reader) (int64, error) {
-	keyPath := s.TransformPathFunc(key)
-	path := s.Path(keyPath)
-	if err := os.MkdirAll(path, os.ModePerm); err != nil {
-		return 0, err
-	}
-	fileP := s.FilePath(keyPath)
-	f, err := os.Create(fileP)
+	f, err := s.openFileToWrite(key)
 	if err != nil {
 		return 0, err
 	}
 	defer f.Close()
 	n, err := cryto.CopyDecrypt(encryptKey, r, f)
 	return int64(n), err
+}
+
+func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
+	f, err := s.openFileToWrite(key)
+	if err != nil {
+	  return 0, err
+	}
+	defer f.Close()
+	return io.Copy(f, r)
+}
+
+func (s *Store) openFileToWrite(key string) (*os.File, error) {
+	keyPath := s.TransformPathFunc(key)
+	path := s.Path(keyPath)
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return nil, err
+	}
+	fileP := s.FilePath(keyPath)
+	return os.Create(fileP)
 }
 
 func (s *Store) FileSize(key string) (int64, error) {
@@ -122,21 +135,6 @@ func (s *Store) FileSize(key string) (int64, error) {
 		return 0, err
 	}
 	return f.Size(), nil
-}
-
-func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
-	keyPath := s.TransformPathFunc(key)
-	path := s.Path(keyPath)
-	if err := os.MkdirAll(path, os.ModePerm); err != nil {
-		return 0, err
-	}
-	fileP := s.FilePath(keyPath)
-	f, err := os.Create(fileP)
-	if err != nil {
-		return 0, err
-	}
-	defer f.Close()
-	return io.Copy(f, r)
 }
 
 func (s *Store) deleteFullPath(fileP string) error {
