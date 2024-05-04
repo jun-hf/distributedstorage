@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
+
 	// "strings"
 	"time"
 
@@ -24,12 +26,14 @@ func main() {
 	}
 
 	time.Sleep(1 * time.Second)
-	// n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
-	// if err != nil {
-	// 	fmt.Print(err)
-	// }
-	// fmt.Println("Server 3030 stream:", n)
+	n, err := server3030.Store("Hello", strings.NewReader("JIDJISED"))
+	if err != nil {
+		fmt.Print(err)
+	}
+	fmt.Println("Server 3030 stream:", n)
 
+	fmt.Println("Sleeping for 10 seconds")
+	time.Sleep(10 * time.Second)
 	r, err := server3030.Read("Hello")
 	if err != nil {
 		log.Fatal(err)

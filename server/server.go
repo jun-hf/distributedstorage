@@ -75,7 +75,7 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		// Get the fileSize
 		var fileSize int64
 		binary.Read(peer, binary.LittleEndian, &fileSize)
-		if _, err := s.store.Write(key, io.LimitReader(peer, fileSize)); err != nil {
+		if _, err := s.store.WriteDecrypt(s.encryptKey, key, io.LimitReader(peer, fileSize)); err != nil {
 			return nil, err
 		}
 		log.Println("Getting key over the network")
