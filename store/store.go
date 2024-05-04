@@ -117,11 +117,7 @@ func (s *Store) writeStream(key string, r io.Reader) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	n, err := io.Copy(f, r)
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return io.Copy(f, r)
 }
 
 func (s *Store) deleteFullPath(fileP string) error {
