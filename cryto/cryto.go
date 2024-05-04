@@ -20,6 +20,12 @@ func New() []byte {
 	return key
 }
 
+func UUID() string {
+	buff := make([]byte, 32)
+	io.ReadFull(rand.Reader, buff)
+	return hex.EncodeToString(buff)
+}
+
 func writeStream(blocksize int, stream cipher.Stream, src io.Reader, dst io.Writer) (int, error) {
 	var (
 		buf = make([]byte, 32*1024)

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"strings"
 	"time"
@@ -37,16 +36,15 @@ func main() {
 		}
 		fmt.Println("Server 7000 stream:", n)
 	}
-	server7000.Delete("item_1")
-	fmt.Println("Sleepinggg 10 seconds")
-	time.Sleep(10 * time.Second)
-	r, err := server7000.Read("item_1")
-	if err != nil {
-		fmt.Println("Error", err)
-	}
+	time.Sleep(5 * time.Second)
+	log.Fatal(server7000.Delete("item_1"))
+	// r, err := server7000.Read("item_1")
+	// if err != nil {
+	// 	fmt.Println("Error", err)
+	// }
 
-	b, _ := io.ReadAll(r)
-	fmt.Println(string(b))
+	// b, _ := io.ReadAll(r)
+	// fmt.Println(string(b))
 	select {}
 }
 
