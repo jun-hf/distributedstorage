@@ -257,6 +257,7 @@ func (s *Server) handleMessageFetch(m MessageFetch, from string) error {
 	// peer -> p2p.IncomingStream
 	// send the amount of file needs to stream across the file
 	// for each file I send the file
+	return nil
 }
 
 func (s *Server) streamDir(path string, peer p2p.Peer) (int, error) {
@@ -267,6 +268,7 @@ func (s *Server) streamDir(path string, peer p2p.Peer) (int, error) {
 	s.store.Count(path)
 	// send size of the first file 
 	// then send file
+	return 0, nil
 }
 
 func (s *Server) handleMessageDelete(m MessageDeleteKey) error {
