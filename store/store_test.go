@@ -57,6 +57,10 @@ func TestStore(t *testing.T) {
 			t.Fatal("key should exist")
 		}
 
+		if ok := store.HasPath(id); !ok {
+			t.Fatalf("path (%v) should exist", id)
+		}
+
 		b, _ := io.ReadAll(r)
 		if string(b) != content {
 			t.Fatalf("Read failed expected (%v), got (%v)", content, string(b))

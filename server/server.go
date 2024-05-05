@@ -62,6 +62,22 @@ func (s *Server) Start() error {
 	return s.dial()
 }
 
+func (s *Server) Fetch() error {
+	// send the msg to all the peer
+	msg := &Message{
+		Payload: &MessageFetch{
+			Id: s.id,
+		},
+	}
+	if err := s.broadcast(msg); err != nil {
+		return err
+	}
+	// handle the streaming from all the peers
+	// 
+
+	return nil
+}
+
 func (s *Server) Delete(key string) error {
 	if !s.store.Has(s.id, key) {
 		return fmt.Errorf("%+v does not exists", key)
@@ -211,10 +227,46 @@ func (s *Server) handleMessage(m Message, from string) error {
 		return s.handleMessageGetFile(payload, from)
 	case MessageDeleteKey:
 		return s.handleMessageDelete(payload)
+	case MessageFetch:
+		return s.handleMessageFetch(payload, from)
 	default:
 		log.Println("No suitable Payload type")
 		return nil
 	}
+}
+
+func (s *Server) handleMessageFetch(m MessageFetch, from string) error {
+	p, err := s.getPeer(from)
+	if err != nil {
+		return err
+	}
+	// check if the key id exists
+	if !s.store.HasPath(m.Id) {
+		// need to do some house keeping to let the request peer know that the id does not exisits
+		return fmt.Errorf("path %+v does not exist ", m.Id)
+	}
+	// start stream the entire content back to the requesting peer
+	p.Write([]byte{p2p.IncomingStream})
+	// start streaming the entire folder
+	// s.store.CopyDir(path, p)
+	// need to handle how to call done to finish the streaming
+	// how to handle when to stop stream
+	// what is the communication flow?
+	// requesting peer -> peer (id)
+	// peer check for (id)
+	// peer -> p2p.IncomingStream
+	// send the amount of file needs to stream across the file
+	// for each file I send the file
+}
+
+func (s *Server) streamDir(path string, peer p2p.Peer) (int, error) {
+	if !s.store.HasPath(path) {
+		return 0, fmt.Errorf("path %+v does not exist ", path)
+	}
+	// send the amount of file needs to be stream
+	s.store.Count(path)
+	// send size of the first file 
+	// then send file
 }
 
 func (s *Server) handleMessageDelete(m MessageDeleteKey) error {

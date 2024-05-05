@@ -27,17 +27,17 @@ func main() {
 		log.Fatal(err)
 	}
 	time.Sleep(1 * time.Second) // wait for all the server to initialize
-	for i := 0; i < 4; i++ {
-		key := fmt.Sprintf("item_%+v", i)
-		data := fmt.Sprintf("big conten%+v", i)
-		n, err := server7000.Store(key, strings.NewReader(data))
-		if err != nil {
-			fmt.Print(err)
-		}
-		fmt.Println("Server 7000 stream:", n)
+	i := 1
+	key := fmt.Sprintf("item_%+v", i)
+	data := fmt.Sprintf("big conten%+v", i)
+	n, err := server7000.Store(key, strings.NewReader(data))
+	if err != nil {
+		fmt.Print(err)
 	}
-	time.Sleep(5 * time.Second)
+	fmt.Println("Server 7000 stream:", n)
+	time.Sleep(2 * time.Second)
 	server7000.Delete("item_1")
+	server7000.Read("item_1")
 	select {}
 }
 
