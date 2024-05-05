@@ -27,3 +27,10 @@ type MessageDeleteKey struct {
 	Key string 
 	Id string
 }
+
+// MessageFetch is the message send to
+// peers to Fetch back all the content that belongs to the 
+// sender content
+type MessageFetch struct {
+	Id string
+}

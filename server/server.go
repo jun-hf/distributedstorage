@@ -97,7 +97,15 @@ func (s *Server) Read(key string) (io.Reader, error) {
 	}
 
 	s.mu.RLock()
-	for _, peer := range s.peers {
+	for addr, peer := range s.peers {
+		// Check if request is success
+		status := make([]byte, 1)
+		peer.Read(status)
+		if status[0] != RequestSuccess {
+			log.Printf("Remote peer (%v) does not have content\n", addr)
+			peer.Done()
+			continue
+		}
 		// Get the fileSize
 		var fileSize int64
 		binary.Read(peer, binary.LittleEndian, &fileSize)
@@ -108,7 +116,6 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		peer.Done()
 	}
 	s.mu.RUnlock()
-
 	return s.store.Read(s.id, key)
 }
 
@@ -210,38 +217,51 @@ func (s *Server) handleMessage(m Message, from string) error {
 	}
 }
 
-func (s *Server) handleMessageDelete(m MessageDeleteKey) error {
-	if !s.store.Has(m.Id, m.Key) {
-		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+// build a function that takes in a file path and send it across the network
+func (s *Server) streamFile(id, key string, peer p2p.Peer) error {
+	if !s.store.Has(id, key) {
+		peer.Write([]byte{p2p.IncomingStream})
+		// stream to requesting peer that server does not have requesting key
+		peer.Write([]byte{KeyNotExist})
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, key)
 	}
-	fmt.Println("Id:", m.Id)
-	fmt.Println("Key:", m.Key)
-	return s.store.Delete(m.Id, m.Key)
-}
-
-func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
-	if !s.store.Has(m.Id, m.Key) {
-		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+	if s.store.Root == "3030-dir" {
+		peer.Write([]byte{p2p.IncomingStream})
+		// stream to requesting peer that server does not have requesting key
+		peer.Write([]byte{KeyNotExist})
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, key)
 	}
-
-	p, err := s.getPeer(from)
+	size, err := s.store.FileSize(id, key)
 	if err != nil {
+		peer.Write([]byte{p2p.IncomingStream})
+		// stream to requesting peer internal server error
+		peer.Write([]byte{InternalServerError})
 		return err
 	}
-
-	size, err := s.store.FileSize(m.Id, m.Key)
-	if err != nil {
-		return err
-	}
-
-	p.Write([]byte{p2p.IncomingStream})
+	peer.Write([]byte{p2p.IncomingStream})
+	peer.Write([]byte{RequestSuccess})
 	// Sending the fileSize first after opening up the stream
-	binary.Write(p, binary.LittleEndian, size)
-	_, err = s.store.CopyRead(m.Id, m.Key, p)
+	binary.Write(peer, binary.LittleEndian, size)
+	_, err = s.store.CopyRead(id, key, peer)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
+	p, err := s.getPeer(from)
+	if err != nil {
+		return err
+	}
+	return s.streamFile(m.Id, m.Key, p)
+}
+
+func (s *Server) handleMessageDelete(m MessageDeleteKey) error {
+	if !s.store.Has(m.Id, m.Key) {
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+	}
+	return s.store.Delete(m.Id, m.Key)
 }
 
 func (s *Server) handleMessageStoreFile(m MessageStoreFile, from string) error {
@@ -311,3 +331,9 @@ func init() {
 	gob.Register(MessageGetFile{})
 	gob.Register(MessageDeleteKey{})
 }
+
+var (
+	KeyNotExist = byte(4)
+	InternalServerError = byte(5)
+	RequestSuccess = byte(2)
+)

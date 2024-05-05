@@ -57,6 +57,12 @@ func (s *Store) Has(id, key string) bool {
 	return !errors.Is(err, os.ErrNotExist)
 }
 
+func (s *Store) HasPath(path string) bool {
+	p := fmt.Sprintf("%s/%s", s.Root, path)
+	_, err := os.Stat(p)
+	return !errors.Is(err, os.ErrNotExist)
+}
+
 func (s *Store) Read(id, key string) (io.Reader, error) {
 	pathKey := s.TransformPathFunc(key)
 	fileP := s.FilePath(id, pathKey)
