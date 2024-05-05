@@ -63,10 +63,6 @@ func (s *Store) HasPath(path string) bool {
 	return !errors.Is(err, os.ErrNotExist)
 }
 
-func (s *Store) Count(path string) int {
-
-}
-
 func (s *Store) Read(id, key string) (io.Reader, error) {
 	pathKey := s.TransformPathFunc(key)
 	fileP := s.FilePath(id, pathKey)
