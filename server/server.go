@@ -62,6 +62,22 @@ func (s *Server) Start() error {
 	return s.dial()
 }
 
+func (s *Server) Fetch() error {
+	// send the msg to all the peer
+	msg := &Message{
+		Payload: &MessageFetch{
+			Id: s.id,
+		},
+	}
+	if err := s.broadcast(msg); err != nil {
+		return err
+	}
+	// handle the streaming from all the peers
+	// 
+
+	return nil
+}
+
 func (s *Server) Delete(key string) error {
 	if !s.store.Has(s.id, key) {
 		return fmt.Errorf("%+v does not exists", key)
@@ -97,7 +113,15 @@ func (s *Server) Read(key string) (io.Reader, error) {
 	}
 
 	s.mu.RLock()
-	for _, peer := range s.peers {
+	for addr, peer := range s.peers {
+		// Check if request is success
+		status := make([]byte, 1)
+		peer.Read(status)
+		if status[0] != RequestSuccess {
+			log.Printf("Remote peer (%v) does not have content\n", addr)
+			peer.Done()
+			continue
+		}
 		// Get the fileSize
 		var fileSize int64
 		binary.Read(peer, binary.LittleEndian, &fileSize)
@@ -108,7 +132,6 @@ func (s *Server) Read(key string) (io.Reader, error) {
 		peer.Done()
 	}
 	s.mu.RUnlock()
-
 	return s.store.Read(s.id, key)
 }
 
@@ -204,37 +227,80 @@ func (s *Server) handleMessage(m Message, from string) error {
 		return s.handleMessageGetFile(payload, from)
 	case MessageDeleteKey:
 		return s.handleMessageDelete(payload)
+	case MessageFetch:
+		return s.handleMessageFetch(payload, from)
 	default:
 		log.Println("No suitable Payload type")
 		return nil
 	}
 }
 
-func (s *Server) handleMessageDelete(m MessageDeleteKey) error {
-	if !s.store.Has(m.Id, m.Key) {
-		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
-	}
-	fmt.Println("Id:", m.Id)
-	fmt.Println("Key:", m.Key)
-	return s.store.Delete(m.Id, m.Key)
-}
-
-func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
-	if !s.store.Has(m.Id, m.Key) {
-		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
-	}
-
+func (s *Server) handleMessageFetch(m MessageFetch, from string) error {
 	p, err := s.getPeer(from)
 	if err != nil {
 		return err
 	}
+	// check if the key id exists
+	if !s.store.HasPath(m.Id) {
+		// need to do some house keeping to let the request peer know that the id does not exisits
+		return fmt.Errorf("path %+v does not exist ", m.Id)
+	}
+	// start stream the entire content back to the requesting peer
+	p.Write([]byte{p2p.IncomingStream})
+	// start streaming the entire folder
+	// s.store.CopyDir(path, p)
+	// need to handle how to call done to finish the streaming
+	// how to handle when to stop stream
+	// what is the communication flow?
+	// requesting peer -> peer (id)
+	// peer check for (id)
+	// peer -> p2p.IncomingStream
+	// send the amount of file needs to stream across the file
+	// for each file I send the file
+	return nil
+}
+
+func (s *Server) streamDir(path string, peer p2p.Peer) (int, error) {
+	if !s.store.HasPath(path) {
+		return 0, fmt.Errorf("path %+v does not exist ", path)
+	}
+	// send the amount of file needs to be stream
+	s.store.Count(path)
+	// send size of the first file 
+	// then send file
+	return 0, nil
+}
+
+func (s *Server) handleMessageDelete(m MessageDeleteKey) error {
+	if !s.store.Has(m.Id, m.Key) {
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+	}
+	return s.store.Delete(m.Id, m.Key)
+}
+
+func (s *Server) handleMessageGetFile(m MessageGetFile, from string) error {
+	p, err := s.getPeer(from)
+	if err != nil {
+		return err
+	}
+	
+	if !s.store.Has(m.Id, m.Key) {
+		p.Write([]byte{p2p.IncomingStream})
+		// stream to requesting peer that server does not have requesting key
+		p.Write([]byte{KeyNotExist})
+		return fmt.Errorf("server (%v) do not have key: %v", s.store.Root, m.Key)
+	}
 
 	size, err := s.store.FileSize(m.Id, m.Key)
 	if err != nil {
+		p.Write([]byte{p2p.IncomingStream})
+		// stream to requesting peer internal server error
+		p.Write([]byte{InternalServerError})
 		return err
 	}
 
 	p.Write([]byte{p2p.IncomingStream})
+	p.Write([]byte{RequestSuccess})
 	// Sending the fileSize first after opening up the stream
 	binary.Write(p, binary.LittleEndian, size)
 	_, err = s.store.CopyRead(m.Id, m.Key, p)
@@ -311,3 +377,9 @@ func init() {
 	gob.Register(MessageGetFile{})
 	gob.Register(MessageDeleteKey{})
 }
+
+var (
+	KeyNotExist = byte(4)
+	InternalServerError = byte(5)
+	RequestSuccess = byte(2)
+)
