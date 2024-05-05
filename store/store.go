@@ -63,8 +63,24 @@ func (s *Store) HasPath(path string) bool {
 	return !errors.Is(err, os.ErrNotExist)
 }
 
-func (s *Store) Count(path string) int {
+func (s *Store) Count(path string) (int, error) {
+	if !s.HasPath(path) {
+		return 0, fmt.Errorf("path (%v) does not exist", path)
+	}
+	path = fmt.Sprintf("%s/%s", s.Root, path)
 
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return 0, err
+	}
+	sum := 0
+	for _, f := range files {
+		if string(f.Name()[0]) == "." {
+			continue
+		}
+		sum++
+	}
+	return sum, nil
 }
 
 func (s *Store) Read(id, key string) (io.Reader, error) {

@@ -61,6 +61,15 @@ func TestStore(t *testing.T) {
 			t.Fatalf("path (%v) should exist", id)
 		}
 
+		c, err := store.Count(id)
+		if err != nil {
+			t.Fatal("error in getting count:", err)
+		}
+
+		if c != 1 {
+			t.Fatal("count should be 1")
+		}
+
 		b, _ := io.ReadAll(r)
 		if string(b) != content {
 			t.Fatalf("Read failed expected (%v), got (%v)", content, string(b))
