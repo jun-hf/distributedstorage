@@ -15,7 +15,25 @@ When you call `server.New(ServerOpts)*Server` it will return a server pointer. Y
 - Integrity of the data is fully secure.
 
 
+
 ## Usage
+### Create an new server:
+
+`server.New(ServerOpts) *server.Server`, for Transport it takes in anything that implements the p2p.Transport
+interface. This package comes with a default tcp server you can start using.
+
+### Storing an key and data
+
+`(*server.Server).Store(string, io.Reader)`, you can store the key and the associated data as
+an io.Reader. This will store the content locally, and also encrypt the data and store it to all the remote peers.
+
+### Deleting the key and data 
+
+`(*server.Server).Delete(string)`, will delete the content stored locally and remotely.
+
+### Reading the data
+
+`(*server.Server).Read(string)`, will read the data associated with the given key. If in an event where the data is missing locally. It will ask the content from the remote nodes.
 
 ### Create an new server:
 
