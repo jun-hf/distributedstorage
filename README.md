@@ -66,6 +66,5 @@ func main() {
 	}
 	time.Sleep(5 * time.Second)
 	server7000.Delete("item_1")
-	select {}
 }
 ```
